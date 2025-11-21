@@ -1,69 +1,103 @@
+import { useEffect, useMemo, useState } from 'react'
+import Header from './components/Header'
+import Filters from './components/Filters'
+import ProductCard from './components/ProductCard'
+
 function App() {
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+  const [brands, setBrands] = useState([])
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  // filters
+  const [selectedBrand, setSelectedBrand] = useState('')
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    fetchBrands()
+    fetchItems()
+  }, [])
+
+  const fetchBrands = async () => {
+    try {
+      const res = await fetch(`${baseUrl}/api/brands`)
+      const data = await res.json()
+      setBrands(data.items || [])
+    } catch (e) {
+      // silent fail for brands
+      setBrands([])
+    }
+  }
+
+  const fetchItems = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const params = new URLSearchParams()
+      if (selectedBrand) params.set('brand', selectedBrand)
+      if (minPrice) params.set('min_price', minPrice)
+      if (maxPrice) params.set('max_price', maxPrice)
+      if (searchTerm) params.set('q', searchTerm)
+
+      const res = await fetch(`${baseUrl}/api/laptops?${params.toString()}`)
+      if (!res.ok) throw new Error(`Failed: ${res.status}`)
+      const data = await res.json()
+      setItems(data.items || [])
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const onSearch = (term) => {
+    setSearchTerm(term)
+    // defer to fetch with new term
+    setTimeout(fetchItems, 0)
+  }
+
+  const onApplyFilters = () => {
+    fetchItems()
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-blue-50">
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        <Header onSearch={onSearch} />
 
-      <div className="relative min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full">
-          {/* Header with Flames icon */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center mb-6">
-              <img
-                src="/flame-icon.svg"
-                alt="Flames"
-                className="w-24 h-24 drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
-              />
-            </div>
-
-            <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">
-              Flames Blue
-            </h1>
-
-            <p className="text-xl text-blue-200 mb-6">
-              Build applications through conversation
-            </p>
+        <div className="mt-8 bg-slate-900/40 border border-blue-500/20 rounded-2xl p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-blue-100">Browse Laptops</h2>
+            <span className="text-xs text-blue-300/70">Backend: {baseUrl}</span>
           </div>
 
-          {/* Instructions */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 shadow-xl mb-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                1
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Describe your idea</h3>
-                <p className="text-blue-200/80 text-sm">Use the chat panel on the left to tell the AI what you want to build</p>
-              </div>
-            </div>
+          <Filters
+            brands={brands}
+            selectedBrand={selectedBrand}
+            setSelectedBrand={setSelectedBrand}
+            minPrice={minPrice}
+            setMinPrice={setMinPrice}
+            maxPrice={maxPrice}
+            setMaxPrice={setMaxPrice}
+            onApply={onApplyFilters}
+          />
 
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Watch it build</h3>
-                <p className="text-blue-200/80 text-sm">Your app will appear in this preview as the AI generates the code</p>
-              </div>
+          {loading ? (
+            <div className="text-center py-12 text-blue-300">Loading...</div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-300">{error}</div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-12 text-blue-300/80">No laptops found. Try adjusting filters.</div>
+          ) : (
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {items.map((it) => (
+                <ProductCard key={it.id} item={it} />
+              ))}
             </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                3
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Refine and iterate</h3>
-                <p className="text-blue-200/80 text-sm">Continue the conversation to add features and make changes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center">
-            <p className="text-sm text-blue-300/60">
-              No coding required • Just describe what you want
-            </p>
-          </div>
+          )}
         </div>
       </div>
     </div>
